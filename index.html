@@ -913,17 +913,45 @@
 
             <div class="grid">
                 <div class="col-6">
-                    <div class="card" style="cursor: pointer;" onclick="switchTab('meals')" title="Fes clic per gestionar i afegir àpats">
-                        <div class="card-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
-                            <span class="card-title"><i class="fa-solid fa-utensils"></i> Àpats Enregistrats <i class="fa-solid fa-arrow-right" style="margin-left:auto; font-size:0.9rem;"></i></span>
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title"><i class="fa-solid fa-utensils"></i> Àpats d'Avui</span>
+                            <button class="btn" style="padding:5px 12px; font-size:0.75rem; margin:0;" onclick="switchTab('meals')">
+                                <i class="fa-solid fa-plus"></i> Gestionar
+                            </button>
                         </div>
+                        <table class="meal-table">
+                            <thead>
+                                <tr>
+                                    <th>Tipus</th>
+                                    <th>Descripció</th>
+                                    <th>Kcal</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-meals-tbody"></tbody>
+                        </table>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="card" style="cursor: pointer;" onclick="switchTab('workouts')" title="Fes clic per gestionar i afegir activitat física">
-                        <div class="card-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
-                            <span class="card-title"><i class="fa-solid fa-person-running"></i> Activitats Físiques i Passos <i class="fa-solid fa-arrow-right" style="margin-left:auto; font-size:0.9rem;"></i></span>
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title"><i class="fa-solid fa-person-running"></i> Esport d'Avui</span>
+                            <button class="btn" style="padding:5px 12px; font-size:0.75rem; margin:0;" onclick="switchTab('workouts')">
+                                <i class="fa-solid fa-plus"></i> Gestionar
+                            </button>
                         </div>
+                        <table class="meal-table">
+                            <thead>
+                                <tr>
+                                    <th>Tipus</th>
+                                    <th>Descripció</th>
+                                    <th>Kcal</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-workouts-tbody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -2273,11 +2301,13 @@
         // ===== EDICIÓ D'UN ÀPAT JA REGISTRAT =====
         // ===================================================================
         let editingMealId = null;
+        let editingMealDateStr = null;
         let editingMealIngredients = [];
         let editIngredientUidCounter = 1;
 
-        function openEditMealModal(mealId) {
-            const day = getDayRecord(mealsDateStr);
+        function openEditMealModal(mealId, dateStr) {
+            editingMealDateStr = dateStr || mealsDateStr;
+            const day = getDayRecord(editingMealDateStr);
             const meal = day.meals.find(m => m.id === mealId);
             if (!meal) return;
 
@@ -2305,6 +2335,7 @@
         function closeEditMealModal() {
             document.getElementById('modal-edit-meal').classList.add('hidden');
             editingMealId = null;
+            editingMealDateStr = null;
             editingMealIngredients = [];
         }
 
@@ -2422,7 +2453,7 @@
         function saveEditedMeal() {
             if (editingMealId === null) return;
 
-            const day = getDayRecord(mealsDateStr);
+            const day = getDayRecord(editingMealDateStr || mealsDateStr);
             const meal = day.meals.find(m => m.id === editingMealId);
             if (!meal) return;
 
@@ -2445,7 +2476,7 @@
             if (editingMealId === null) return;
             if (!confirm('Segur que vols eliminar aquest àpat del registre?')) return;
 
-            const day = getDayRecord(mealsDateStr);
+            const day = getDayRecord(editingMealDateStr || mealsDateStr);
             day.meals = day.meals.filter(m => m.id !== editingMealId);
 
             saveData();
@@ -2587,6 +2618,54 @@
                 macroRingChartInstance.data.datasets[0].data = [carbCal, protCal, fatCal, remainingCal];
                 macroRingChartInstance.update();
             }
+
+            renderDashboardLists();
+        }
+
+        // Mostra els àpats i l'activitat física del dia mostrat a la pestanya "Avui" en dues taules resum.
+        function renderDashboardLists() {
+            const day = getDayRecord(currentDateStr);
+
+            const mealsTbody = document.getElementById('dashboard-meals-tbody');
+            if (mealsTbody) {
+                mealsTbody.innerHTML = '';
+                if (day.meals.length === 0) {
+                    mealsTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--text-light);">Cap àpat enregistrat</td></tr>`;
+                } else {
+                    day.meals.forEach((m) => {
+                        const tr = document.createElement('tr');
+                        tr.setAttribute('data-clickable', '1');
+                        tr.title = 'Fes clic per editar aquest àpat';
+                        tr.onclick = () => openEditMealModal(m.id, currentDateStr);
+                        tr.innerHTML = `
+                            <td><span class="badge badge-${m.type.toLowerCase()}">${m.type}</span></td>
+                            <td>${m.desc}</td>
+                            <td><strong>${m.cal}</strong> kcal</td>
+                            <td><button onclick="event.stopPropagation(); deleteMeal(${m.id}, '${currentDateStr}')" style="background:none; border:none; color:var(--danger); cursor:pointer;" title="Eliminar"><i class="fa-solid fa-trash"></i></button></td>
+                        `;
+                        mealsTbody.appendChild(tr);
+                    });
+                }
+            }
+
+            const workoutsTbody = document.getElementById('dashboard-workouts-tbody');
+            if (workoutsTbody) {
+                workoutsTbody.innerHTML = '';
+                if (day.workouts.length === 0) {
+                    workoutsTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--text-light);">Cap activitat física enregistrada</td></tr>`;
+                } else {
+                    day.workouts.forEach((w) => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><span class="badge badge-${w.type.toLowerCase()}">${w.type}</span></td>
+                            <td>${w.desc}</td>
+                            <td><strong>${w.cal}</strong> kcal</td>
+                            <td><button onclick="deleteWorkout(${w.id}, '${currentDateStr}')" style="background:none; border:none; color:var(--danger); cursor:pointer;" title="Eliminar"><i class="fa-solid fa-trash"></i></button></td>
+                        `;
+                        workoutsTbody.appendChild(tr);
+                    });
+                }
+            }
         }
 
         function renderMealsData() {
@@ -2661,8 +2740,8 @@
             alert(`Àpat guardat correctament per al dia ${formatDate(mealsDateStr)}!`);
         }
 
-        function deleteMeal(id) {
-            const day = getDayRecord(mealsDateStr);
+        function deleteMeal(id, dateStr) {
+            const day = getDayRecord(dateStr || mealsDateStr);
             day.meals = day.meals.filter(m => m.id !== id);
             saveData();
         }
@@ -2683,8 +2762,8 @@
             alert(`Activitat física afegida correctament al dia ${formatDate(workoutsDateStr)}!`);
         }
 
-        function deleteWorkout(id) {
-            const day = getDayRecord(workoutsDateStr);
+        function deleteWorkout(id, dateStr) {
+            const day = getDayRecord(dateStr || workoutsDateStr);
             day.workouts = day.workouts.filter(w => w.id !== id);
             saveData();
         }
